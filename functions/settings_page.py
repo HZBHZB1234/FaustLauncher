@@ -1,0 +1,271 @@
+import tkinter as tk
+from tkinter import ttk, filedialog, messagebox
+from functions.settings_manager import get_settings_manager
+
+class SettingsPage:
+    def __init__(self, parent_frame):
+        self.parent = parent_frame
+        self.settings_manager = get_settings_manager()
+        self.setting_widgets = {}
+        self.create_widgets()
+        self.auto_refresh()
+    
+    def create_widgets(self):
+        """创建设置页面控件"""
+        # 创建标题
+        title_label = ttk.Label(self.parent, text="⚙️ 设置", 
+                               font=('Microsoft YaHei UI', 18, 'bold'),
+                               background='#34495e', foreground='white')
+        title_label.pack(pady=20)
+        
+        # 创建设置内容容器
+        content_frame = tk.Frame(self.parent, bg='#34495e')
+        content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
+        
+        # 创建滚动框架
+        canvas = tk.Canvas(content_frame, bg='#34495e', highlightthickness=0)
+        scrollbar = ttk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas, style='Custom.TFrame')
+        
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+        
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # 动态生成设置控件
+        self.create_settings_controls(scrollable_frame)
+        
+        # 创建操作按钮区域
+        self.create_action_buttons(scrollable_frame)
+        
+        # 打包滚动区域
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+        
+        # 绑定鼠标滚轮事件
+        def _on_mousewheel(event):
+            canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        canvas.bind("<MouseWheel>", _on_mousewheel)
+        scrollable_frame.bind("<MouseWheel>", _on_mousewheel)
+    
+    def create_settings_controls(self, parent):
+        """动态生成设置控件"""
+        settings = self.settings_manager.get_all_settings()
+        
+        for i, (key, setting_info) in enumerate(settings.items()):
+            # 创建设置项框架
+            setting_frame = tk.Frame(parent, bg='#2c3e50', relief='raised', borderwidth=1)
+            setting_frame.pack(fill=tk.X, padx=10, pady=8, ipady=8)
+            
+            # 设置项标题和描述
+            # 优先使用name字段，然后使用description字段，最后使用key
+            setting_name = setting_info.get('name', setting_info.get('description', key))
+            title_label = tk.Label(setting_frame, 
+                                 text=setting_name,
+                                 font=('Microsoft YaHei UI', 11, 'bold'),
+                                 bg='#2c3e50', fg='white')
+            title_label.pack(anchor=tk.W, padx=15, pady=(5, 2))
+            
+            # 添加描述文本（如果description存在且与name不同）
+            if 'description' in setting_info and setting_info['description'] != setting_name:
+                desc_label = tk.Label(setting_frame, 
+                                    text=setting_info['description'],
+                                    font=('Microsoft YaHei UI', 9),
+                                    bg='#2c3e50', fg='#bdc3c7',
+                                    wraplength=400, justify=tk.LEFT)
+                desc_label.pack(anchor=tk.W, padx=15, pady=(0, 5))
+            
+            # 根据类型创建不同的控件
+            setting_type = setting_info.get('type', 'string')
+            current_value = self.settings_manager.get_setting(key)
+            
+            if setting_type == 'boolean':
+                self.create_boolean_control(setting_frame, key, setting_info, current_value)
+            elif setting_type == 'string':
+                self.create_string_control(setting_frame, key, setting_info, current_value)
+            elif setting_type in ['integer', 'float']:
+                self.create_numeric_control(setting_frame, key, setting_info, current_value)
+            
+            # 添加重置按钮
+            reset_btn = tk.Button(setting_frame, text="↺ 重置",
+                                 command=lambda k=key: self.reset_setting(k),
+                                 font=('Microsoft YaHei UI', 8),
+                                 bg='#f39c12', fg='white',
+                                 relief='flat', padx=8, pady=2)
+            reset_btn.pack(anchor=tk.E, padx=15, pady=5)
+    
+    def create_boolean_control(self, parent, key, setting_info, current_value):
+        """创建布尔值控件"""
+        var = tk.BooleanVar(value=current_value)
+        # 使用name字段作为复选框文本，如果没有name则使用description
+        checkbox_text = setting_info.get('name', setting_info.get('description', key))
+        checkbox = tk.Checkbutton(parent, 
+                                text=checkbox_text,
+                                variable=var,
+                                command=lambda: self.on_boolean_change(key, var),
+                                font=('Microsoft YaHei UI', 10),
+                                bg='#2c3e50', fg='white',
+                                selectcolor='#3498db',
+                                activebackground='#2c3e50',
+                                activeforeground='white')
+        checkbox.pack(anchor=tk.W, padx=15, pady=5)
+        self.setting_widgets[key] = var
+    
+    def create_string_control(self, parent, key, setting_info, current_value):
+        """创建字符串控件"""
+        if key == 'game_path':
+            # 游戏路径特殊处理，添加浏览按钮
+            path_frame = tk.Frame(parent, bg='#2c3e50')
+            path_frame.pack(fill=tk.X, padx=15, pady=5)
+            
+            entry = tk.Entry(path_frame, 
+                           font=('Microsoft YaHei UI', 10),
+                           width=40)
+            entry.insert(0, current_value)
+            entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+            
+            browse_btn = tk.Button(path_frame, text="浏览",
+                                 command=lambda: self.browse_game_path(entry),
+                                 font=('Microsoft YaHei UI', 9),
+                                 bg='#3498db', fg='white',
+                                 relief='flat', padx=10)
+            browse_btn.pack(side=tk.RIGHT, padx=(5, 0))
+            
+            self.setting_widgets[key] = entry
+        else:
+            entry = tk.Entry(parent, 
+                           font=('Microsoft YaHei UI', 10),
+                           width=50)
+            entry.insert(0, current_value)
+            entry.pack(anchor=tk.W, padx=15, pady=5)
+            entry.bind('<KeyRelease>', lambda e, k=key: self.on_string_change(k, entry))
+            self.setting_widgets[key] = entry
+    
+    def create_numeric_control(self, parent, key, setting_info, current_value):
+        """创建数值控件"""
+        control_frame = tk.Frame(parent, bg='#2c3e50')
+        control_frame.pack(fill=tk.X, padx=15, pady=5)
+        
+        # 标签显示当前值
+        value_label = tk.Label(control_frame, 
+                             text=f"当前值: {current_value}",
+                             font=('Microsoft YaHei UI', 9),
+                             bg='#2c3e50', fg='#bdc3c7')
+        value_label.pack(side=tk.LEFT)
+        
+        # 滑动条
+        min_val = setting_info.get('min', 0)
+        max_val = setting_info.get('max', 100)
+        step = setting_info.get('step', 1)
+        
+        scale = tk.Scale(control_frame,
+                        from_=min_val, to=max_val,
+                        resolution=step,
+                        orient=tk.HORIZONTAL,
+                        length=200,
+                        showvalue=False,
+                        command=lambda v, k=key: self.on_scale_change(k, v, value_label),
+                        bg='#2c3e50', fg='white',
+                        troughcolor='#34495e',
+                        highlightbackground='#2c3e50')
+        scale.set(current_value)
+        scale.pack(side=tk.RIGHT, fill=tk.X, expand=True)
+        
+        self.setting_widgets[key] = scale
+    
+    def create_action_buttons(self, parent):
+        """创建操作按钮"""
+        button_frame = tk.Frame(parent, bg='#34495e')
+        button_frame.pack(fill=tk.X, pady=20)
+        
+        # 重置所有按钮
+        reset_all_btn = tk.Button(button_frame, text="↺ 重置所有设置",
+                                command=self.reset_all_settings,
+                                font=('Microsoft YaHei UI', 11, 'bold'),
+                                bg='#e67e22', fg='white',
+                                relief='raised', borderwidth=4,
+                                padx=20, pady=10)
+        reset_all_btn.pack(side=tk.LEFT, padx=10)
+    
+    def on_boolean_change(self, key, var):
+        """布尔值改变事件"""
+        self.settings_manager.set_setting(key, var.get())
+    
+    def on_string_change(self, key, entry):
+        """字符串改变事件"""
+        self.settings_manager.set_setting(key, entry.get())
+    
+    def on_scale_change(self, key, value, value_label):
+        """滑动条改变事件"""
+        value = float(value)
+        self.settings_manager.set_setting(key, value)
+        value_label.config(text=f"当前值: {value:.1f}")
+    
+    def browse_game_path(self, entry):
+        """浏览游戏路径"""
+        path = filedialog.askopenfilename(title="选择边狱巴士主程序", filetypes=[("边狱巴士主程序", "LimbusCompany.exe")])
+        path = path.replace('LimbusCompany.exe', '')
+        if path:
+            entry.delete(0, tk.END)
+            entry.insert(0, path)
+            self.settings_manager.set_setting('game_path', path)
+    
+    def reset_setting(self, key):
+        """重置单个设置项"""
+        setting_info = self.settings_manager.get_setting_info(key)
+        setting_name = setting_info.get('name', setting_info.get('description', key)) if setting_info else key
+        
+        if self.settings_manager.reset_setting(key):
+            self.save_all_settings()
+            self.refresh_all_displays()
+            messagebox.showinfo("成功", f"已重置设置项: {setting_name}")
+    
+    def reset_all_settings(self):
+        """重置所有设置"""
+        if messagebox.askyesno("确认", "确定要重置所有设置为默认值吗？\n\n这将使用当前值更新默认值。"):
+            self.settings_manager.reset_all_settings()
+            self.save_all_settings()
+            self.refresh_all_displays()
+            messagebox.showinfo("成功", "已重置所有设置")
+    
+    def save_all_settings(self):
+        """保存所有设置"""
+        if self.settings_manager.save_settings():
+            pass
+        else:
+            messagebox.showerror("错误", "保存设置失败")
+    
+    def refresh_setting_display(self, key):
+        """刷新单个设置项的显示"""
+        current_value = self.settings_manager.get_setting(key)
+        setting_info = self.settings_manager.get_setting_info(key)
+        
+        if key in self.setting_widgets:
+            widget = self.setting_widgets[key]
+            setting_type = setting_info.get('type', 'string') # type: ignore
+            
+            if setting_type == 'boolean':
+                widget.set(current_value)
+            elif setting_type == 'string':
+                if isinstance(widget, tk.Entry):
+                    widget.delete(0, tk.END)
+                    widget.insert(0, current_value) # type: ignore
+            elif setting_type in ['integer', 'float']:
+                widget.set(current_value)
+    
+    def refresh_all_displays(self):
+        """刷新所有设置项的显示"""
+        for key in self.settings_manager.get_all_settings():
+            self.refresh_setting_display(key)
+
+    def auto_refresh(self):
+        """自动刷新所有设置项的显示"""
+        self.save_all_settings()
+        self.parent.after(1000, self.auto_refresh)  # 每1秒刷新一次
+
+def init_settings_page(parent_frame):
+    """初始化设置页面"""
+    return SettingsPage(parent_frame)
