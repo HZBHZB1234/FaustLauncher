@@ -5,16 +5,17 @@ import random
 import sys
 import json
 from PIL import Image, ImageTk, ImageFilter
-from json import load
 import pymysql
 from subprocess import Popen
-from functions.settings_page import init_settings_page
+from functions.pages.settings_page import init_settings_page
 from functions.settings_manager import get_settings_manager
+from functions.pages.loading_info import create_simple_splash
+from functions.window_ulits import center_window
 
 # 添加自定义汉化工具导入
 try:
     sys.path.append('functions')
-    from functions.custom_translation import open_custom_translation_tool
+    from functions.pages.custom_translation import open_custom_translation_tool
 except ImportError as e:
     print(f"导入自定义汉化工具失败: {e}")
     open_custom_translation_tool = None
@@ -23,6 +24,8 @@ dowloading = False
 root: tk.Tk = None # type: ignore
 config_path = ""
 settings_manager = get_settings_manager()
+bg_color:str = settings_manager.get_setting("bg_color") # type: ignore
+VERSION_INFO:str = settings_manager.get_setting("version_info") # type: ignore
 
 class TerminalRedirector:
     """重定向print输出到文本组件的类"""
@@ -99,11 +102,15 @@ class TerminalRedirector:
         sys.stderr = self.original_stderr
 
 class FaustLauncherApp:
-    def __init__(self, root: tk.Tk):
+    def __init__(self, root: tk.Tk, on_initialized=None):
+        global bg_color
+
         self.root = root
         self.root.title("Faust Launcher")
-        self.root.geometry("900x700")
+        self.root.geometry("800x700")
         self.root.resizable(False, False)
+
+        center_window(self.root, False)
         
         # 设置应用程序图标
         try:
@@ -118,29 +125,31 @@ class FaustLauncherApp:
         self.current_bg_image = None
         self.current_blurred_bg = None
         self.load_background_images()
+        self.bg_color = bg_color
+        self.lighten_bg_color = self.lighten_color(self.bg_color, 5)
         
-        # 创建主容器框架 - 使用深蓝色背景
-        self.container = tk.Frame(self.root, bg='#2c3e50')
+        # 创建主容器框架
+        self.container = tk.Frame(self.root, bg=self.darken_color(self.bg_color, 0.7))
         self.container.pack(fill=tk.BOTH, expand=True)
         
-        # 创建背景Canvas - 覆盖整个窗口
+        # 创建背景 Canvas - 覆盖整个窗口
         self.bg_canvas = tk.Canvas(self.container, highlightthickness=0)
         self.bg_canvas.place(x=0, y=0, relwidth=1, relheight=1)
         
-        # 创建内容容器 - 使用半透明深蓝色背景
-        self.content_frame = tk.Frame(self.container, bg='#34495e')
-        self.content_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER, width=800, height=600)
+        # 创建内容容器
+        self.content_frame = tk.Frame(self.container, bg=self.bg_color)
+        self.content_frame.place(relx=0.5, rely=0.5, anchor=tk.CENTER, width=700, height=600)
         
-        # 创建分页控件 - 使用深蓝色背景
+        # 创建分页控件
         self.notebook = ttk.Notebook(self.content_frame)
         self.notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
-        # 创建四个页面 - 使用深蓝色背景（添加工具页）
-        self.home_frame = tk.Frame(self.notebook, bg='#34495e')
-        self.features_frame = tk.Frame(self.notebook, bg='#34495e')
-        self.tools_frame = tk.Frame(self.notebook, bg='#34495e')  # 新增工具页
-        self.about_frame = tk.Frame(self.notebook, bg='#34495e')
-        self.settings_frame = tk.Frame(self.notebook, bg='#34495e')
+        # 创建四个页面 - 添加工具页
+        self.home_frame = tk.Frame(self.notebook, bg=self.bg_color)
+        self.features_frame = tk.Frame(self.notebook, bg=self.bg_color)
+        self.tools_frame = tk.Frame(self.notebook, bg=self.bg_color)  # 新增工具页
+        self.about_frame = tk.Frame(self.notebook, bg=self.bg_color)
+        self.settings_frame = tk.Frame(self.notebook, bg=self.bg_color)
         
         # 添加页面到分页控件
         self.notebook.add(self.home_frame, text="🏘 主页")
@@ -151,7 +160,7 @@ class FaustLauncherApp:
         
         # 绑定分页切换事件
         self.notebook.bind("<<NotebookTabChanged>>", self.on_tab_changed)
-        
+
         # 设置样式
         self.set_styles()
 
@@ -167,48 +176,64 @@ class FaustLauncherApp:
         
         # 设置终端重定向
         self.setup_terminal_redirect()
+        
+        # 保存初始化完成回调
+        self.on_initialized = on_initialized
+        
+        # 延迟调用初始化完成回调，确保界面完全渲染
+        self.root.after(500, self._notify_initialized)
 
-        # 检查设置
-        self.root.after(100, self.check_settings)
+    def _notify_initialized(self):
+        """通知应用程序初始化完成"""
+        # 确保界面已经完全渲染
+        self.root.update_idletasks()
+        self.root.update()
+        
+        # 调用初始化完成回调
+        if self.on_initialized:
+            self.on_initialized()
     
     def init_settings_page(self):
         """初始化设置页面"""
         try:
-            self.settings_page = init_settings_page(self.settings_frame)
+            self.settings_page = init_settings_page(self.settings_frame, self.bg_color, self.lighten_bg_color)
         except Exception as e:
             print(f"初始化设置页面失败: {e}")
             # 创建错误提示
             error_label = tk.Label(self.settings_frame, 
                                  text="❌ 设置页面加载失败",
                                  font=('Microsoft YaHei UI', 16),
-                                 bg='#34495e', fg='white')
+                                 bg=self.bg_color, fg='white')
             error_label.pack(expand=True)
             
             detail_label = tk.Label(self.settings_frame,
                                   text=str(e),
                                   font=('Microsoft YaHei UI', 10),
-                                  bg='#34495e', fg='#bdc3c7')
+                                  bg=self.bg_color, fg='#bdc3c7')
             detail_label.pack()
 
     def init_tools_page(self):
         """初始化工具页内容"""
-        from functions.handle_colorful import test_color_gradient_gui
-        from functions.select_font import select_font_gui
+        global settings_manager
+        from functions.fancy.dialog_colorful import test_color_gradient_gui
+        from functions.pages.select_font import select_font_gui
+        from functions.translate.auto_translate_gui import show_auto_translate_gui
 
-        # 创建标题标签
-        title_label = ttk.Label(self.tools_frame, text="🔧 工具页", style="Title.TLabel")
-        title_label.pack(pady=30)
+        source_path = f"{settings_manager.get_setting('game_path')}/LimbusCompany_Data/Assets/Resources_moved/Localize/en"
+        target_path = "workshop/LLC_zh-CN"
         
-        # 创建工具区域 - 使用深蓝色背景
-        tools_container = tk.Frame(self.tools_frame, bg='#34495e')
-        tools_container.pack(fill=tk.BOTH, expand=True, padx=50, pady=20)
+        # 创建工具区域
+        tools_container = tk.Frame(self.tools_frame, bg=self.bg_color)
+        tools_container.pack(fill=tk.BOTH, expand=True, padx=80, pady=20)
         
         # 创建工具列表
         tools = [
             {"name": "🔧 自定义汉化", "description": "编辑workshop目录下的JSON文件\n实现自定义的汉化修改。", "color": "#3498db", "command": self.open_custom_translation_tool},
             {"name": "🚜 文件夹超链接", "description": "为文件夹制作超链接，达到转移空间的目的？", "color": "#34db34", "command": self.folder_link},
-            {"name": "💻 渐变文本处理器", "description": "根据用户输入的文本生成渐变的 Untity 富文本。", "color": "#FFBD30", "command": test_color_gradient_gui},
-            {"name": "📝 字体修改", "description": "修改汉化包的字体，使用你自己喜欢的字体包代替。", "color": "#FA3E3E", "command": select_font_gui},
+            {"name": "💻 渐变文本处理器", "description": "根据用户输入的文本生成渐变的 Untity 富文本。", "color": "#FFBD30", "command": lambda: test_color_gradient_gui(self)},
+            {"name": "📝 字体修改", "description": "修改汉化包的字体，使用你自己喜欢的字体包代替。", "color": "#FA3E3E", "command": lambda: select_font_gui(self)},
+            {"name": "🔄 自动汉化", "description": "使用有道 api 实现对游戏的补充汉化。", "color": "#9130FF", "command": lambda: show_auto_translate_gui(self, source_path, target_path)},
+            {"name": "📦 Mod 管理器", "description": "管理边狱巴士的 Mod。", "color": "#808080", "command": self.open_mod_manager}
         ]
         
         # 使用网格布局创建工具卡片
@@ -220,10 +245,10 @@ class FaustLauncherApp:
             card_frame = tk.Frame(tools_container, 
                                 bg=tool['color'],
                                 relief='raised',
-                                borderwidth=2)
-            card_frame.grid(row=row, column=col, padx=6, pady=6, sticky="nsew")
+                                borderwidth=1)
+            card_frame.grid(row=row, column=col, padx=5, pady=5, sticky="nsew")
             card_frame.grid_propagate(False)
-            card_frame.configure(width=250, height=150)
+            card_frame.configure(width=150, height=150)
             
             # 添加工具标题
             title_label = tk.Label(card_frame, 
@@ -231,7 +256,7 @@ class FaustLauncherApp:
                                  bg=tool['color'],
                                  fg='white',
                                  font=('Microsoft YaHei UI', 14, 'bold'))
-            title_label.pack(pady=(20, 10))
+            title_label.pack(pady=(10, 10))
             
             # 添加工具描述
             desc_label = tk.Label(card_frame, 
@@ -240,7 +265,7 @@ class FaustLauncherApp:
                                 fg='white',
                                 font=('Microsoft YaHei UI', 10),
                                 wraplength=220)
-            desc_label.pack(pady=5)
+            desc_label.pack(pady=2)
             
             # 添加操作按钮
             action_button = tk.Button(card_frame, 
@@ -251,7 +276,7 @@ class FaustLauncherApp:
                                     font=('Microsoft YaHei UI', 9, 'bold'),
                                     relief='flat',
                                     padx=15,
-                                    pady=8,
+                                    pady=3,
                                     cursor='hand2')
             action_button.pack(pady=15)
             
@@ -269,7 +294,7 @@ class FaustLauncherApp:
         """打开自定义汉化工具"""
         if open_custom_translation_tool:
             try:
-                open_custom_translation_tool(self.root)
+                open_custom_translation_tool(self)
                 print("🔧 自定义汉化工具已打开")
             except Exception as e:
                 print(f"❌ 打开自定义汉化工具失败: {e}")
@@ -280,10 +305,30 @@ class FaustLauncherApp:
             import tkinter.messagebox as messagebox
             messagebox.showerror("错误", "自定义汉化工具未正确导入，请检查functions目录")
     
-    def show_coming_soon(self):
-        """显示即将推出提示"""
-        import tkinter.messagebox as messagebox
-        messagebox.showinfo("提示", "更多实用工具即将推出！")
+    def add_fade_animation(self, widget):
+        """为控件添加淡入动画"""
+        def fade_in(alpha=0):
+            if alpha < 1:
+                # 设置透明度（需要支持透明度的系统）
+                try:
+                    widget.configure(alpha=alpha)
+                except:
+                    pass
+                self.root.after(10, lambda: fade_in(alpha + 0.05)) # type: ignore
+        
+        fade_in()
+
+    def on_tab_changed(self, event):
+        """标签页切换时的动画效果"""
+        # 获取当前选中的标签页
+        current_tab = self.notebook.index(self.notebook.select())
+        
+        # 为当前页面添加淡入效果
+        frames = [self.home_frame, self.features_frame, self.tools_frame, 
+                self.settings_frame, self.about_frame]
+        
+        if current_tab < len(frames):
+            self.add_fade_animation(frames[current_tab])
 
     def load_background_images(self):
         """加载背景图片"""
@@ -356,10 +401,10 @@ class FaustLauncherApp:
             except Exception as e:
                 print(f"加载背景图片失败: {e}")
                 # 使用默认背景颜色
-                self.bg_canvas.configure(bg='#2c3e50')
+                self.bg_canvas.configure(bg=bg_color)
         else:
             # 使用默认背景颜色
-            self.bg_canvas.configure(bg='#2c3e50')
+            self.bg_canvas.configure(bg=bg_color)
     
     def start_background_rotation(self):
         """开始背景轮换"""
@@ -371,7 +416,7 @@ class FaustLauncherApp:
         self.set_background_image()
         # 每30秒更换一次背景
         self.root.after(30000, self.rotate_background)
-    
+
     def set_styles(self):
         """设置应用程序的样式"""
         style = ttk.Style()
@@ -379,32 +424,32 @@ class FaustLauncherApp:
         # 配置自定义主题
         style.theme_use('clam')
         
-        style.configure('TNotebook', background='#34495e')
-        style.configure('TNotebook.Tab', background='#2c3e50', foreground='#ecf0f1',
+        style.configure('TNotebook', background=bg_color)
+        style.configure('TNotebook.Tab', background=bg_color, foreground='#ecf0f1',
                        padding=[15, 5], font=('Microsoft YaHei UI', 10))
-        style.map('TNotebook.Tab', background=[('selected', '#3498db')])
+        style.map('TNotebook.Tab', background=[('selected', self.lighten_bg_color)])
         
         # 配置标签样式 - 使用白色文字，在模糊背景上更清晰
         style.configure("Title.TLabel",
-                       background='#34495e',
+                       background=self.bg_color,
                        foreground='white',
                        font=('Microsoft YaHei UI', 18, 'bold'))
         style.configure("Subtitle.TLabel",
-                       background='#34495e',
+                       background=self.bg_color,
                        foreground='white',
                        font=('Microsoft YaHei UI', 12))
         
         # 配置标签框架样式 - 使用浅色背景
         style.configure("Custom.TLabelframe",
-                       background='#f8f9fa',
-                       foreground='#2c3e50',
-                       bordercolor='#bdc3c7',
+                       background=self.lighten_bg_color,
+                       foreground=self.darken_color(self.bg_color, 0.3),
+                       bordercolor=self.lighten_color(self.lighten_bg_color, 40),
                        relief='raised',
                        borderwidth=2)
         style.configure("Custom.TLabelframe.Label",
-                       background='#f8f9fa',
-                       foreground='#2c3e50',
-                       font=('Microsoft YaHei UI', 11, 'bold'))
+                       background=self.lighten_bg_color,
+                       foreground=self.lighten_color(self.lighten_bg_color, 40),
+                       font=('微软雅黑', 11, 'bold'))
         
         # 字体配置
         self.title_font = font.Font(family='Microsoft YaHei UI', size=18, weight='bold')
@@ -413,6 +458,8 @@ class FaustLauncherApp:
     
     def init_home_page(self):
         """初始化主页内容"""
+        from threading import Thread
+
         # 创建标题标签
         title_label = ttk.Label(self.home_frame, text="✨ Faust Launcher ✨", style="Title.TLabel")
         title_label.pack(pady=30)
@@ -423,16 +470,16 @@ class FaustLauncherApp:
         desc_label.pack(pady=20)
         
         # 创建快速操作区域
-        quick_actions_frame = ttk.LabelFrame(self.home_frame, text="🚀 快速操作", style="Custom.TLabelframe")
-        quick_actions_frame.pack(fill=tk.X, padx=30, pady=20)
+        quick_actions_frame = ttk.LabelFrame(self.home_frame, text="  🚀 快速操作", style="Custom.TLabelframe")
+        quick_actions_frame.pack(padx=30, pady=10)
         
         # 创建按钮容器 - 使用浅色背景
-        button_container = tk.Frame(quick_actions_frame, bg='#f8f9fa')
-        button_container.pack(pady=15)
+        button_container = tk.Frame(quick_actions_frame, bg=self.lighten_bg_color)
+        button_container.pack(pady=15, padx=10)
         
         # 创建几个美化按钮 - 使用tkinter支持的十六进制颜色
         buttons_data = [
-            {"text": "🚀 启动游戏", "command": run_game, "color": "#2980b9"},
+            {"text": "🚀 启动游戏", "command": lambda:Thread(target=handle_dowload, kwargs={"need_run_game": True}).start(), "color": "#2980b9"},
             {"text": "🎯 汉化更新", "command": self.update_translation, "color": "#27ae60"},
             {"text": "📚 使用帮助", "command": self.show_help, "color": "#9b59b6"}
         ]
@@ -452,13 +499,15 @@ class FaustLauncherApp:
             # 添加悬停效果
             button.bind("<Enter>", lambda e, b=button: b.configure(bg=self.darken_color(b.cget('bg'))))
             button.bind("<Leave>", lambda e, b=button, c=btn_data["color"]: b.configure(bg=c))
+
+        self.create_status_bar()
         
         # 创建迷你终端区域 - 替换原来的系统状态面板
-        terminal_frame = ttk.LabelFrame(self.home_frame, text="💻 迷你终端", style="Custom.TLabelframe")
-        terminal_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=10)
+        terminal_frame = ttk.LabelFrame(self.home_frame, text="  💻 迷你终端", style="Custom.TLabelframe")
+        terminal_frame.pack(fill=tk.BOTH, expand=True, padx=30, pady=15)
         
         # 创建终端工具栏
-        terminal_toolbar = tk.Frame(terminal_frame, bg='#f8f9fa')
+        terminal_toolbar = tk.Frame(terminal_frame, bg=self.lighten_bg_color)
         terminal_toolbar.pack(fill=tk.X, padx=10, pady=5)
         
         # 添加终端控制按钮
@@ -467,18 +516,18 @@ class FaustLauncherApp:
                                command=self.clear_terminal,
                                bg='#e74c3c',
                                fg='white',
-                               font=('Microsoft YaHei UI', 8, 'bold'),
+                               font=('微软雅黑', 8, 'bold'),
                                relief='flat',
                                padx=8,
                                pady=3)
         clear_button.pack(side=tk.LEFT, padx=5)
         
         copy_button = tk.Button(terminal_toolbar,
-                              text="📋 复制内容",
+                              text="📋  复制内容",
                               command=self.copy_terminal_content,
                               bg='#3498db',
                               fg='white',
-                              font=('Microsoft YaHei UI', 8, 'bold'),
+                              font=('微软雅黑', 8, 'bold'),
                               relief='flat',
                               padx=8,
                               pady=3)
@@ -494,9 +543,9 @@ class FaustLauncherApp:
         
         # 创建终端文本组件
         self.terminal_text = tk.Text(terminal_container,
-                                   bg='#1e1e1e',
+                                   bg="#1e1e1e",
                                    fg="#ffffff",
-                                   font=('Consolas', 10),
+                                   font=('微软雅黑', 10),
                                    yscrollcommand=scrollbar.set,
                                    wrap=tk.WORD,
                                    relief='flat',
@@ -516,9 +565,30 @@ class FaustLauncherApp:
         self.add_terminal_message("🚀 Faust Launcher 已启动")
         self.add_terminal_message("💻 终端重定向已启用")
         self.add_terminal_message("=" * 50)
+
+    def create_status_bar(self):
+        """创建底部状态栏"""
+        status_frame = tk.Frame(self.home_frame, bg=self.lighten_bg_color, height=30)
+        status_frame.pack(fill='x', side='bottom')
+        status_frame.pack_propagate(False)
+        
+        # 状态信息
+        status_label = tk.Label(status_frame,
+                            text="🟢 就绪",
+                            bg=self.lighten_bg_color,
+                            fg='#bdc3c7',
+                            font=('Microsoft YaHei UI', 9))
+        status_label.pack(side='left', padx=10)
+        
+        # 版本信息
+        version_label = tk.Label(status_frame,
+                                text=f"版本 {VERSION_INFO}",
+                                bg=self.lighten_bg_color, 
+                                fg='#95a5a6',
+                                font=('Microsoft YaHei UI', 9))
+        version_label.pack(side='right', padx=10)
     
     def setup_terminal_redirect(self):
-        """设置终端重定向"""
         """设置终端重定向"""
         # 启用文本组件编辑以添加内容
         self.terminal_text.config(state=tk.NORMAL)
@@ -559,22 +629,19 @@ class FaustLauncherApp:
     
     def init_features_page(self):
         """初始化功能页内容"""
-        # 创建标题标签
-        title_label = ttk.Label(self.features_frame, text="🎯 快捷方式", style="Title.TLabel")
-        title_label.pack(pady=30)
         
-        # 创建功能区域 - 使用深蓝色背景
-        features_container = tk.Frame(self.features_frame, bg='#34495e')
+        # 创建功能区域
+        features_container = tk.Frame(self.features_frame, bg=self.bg_color)
         features_container.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
         # 创建功能列表 - 使用tkinter支持的十六进制颜色
         features = [
             {"name": "📁 游戏目录", "description": "边狱巴士的游戏目录。\n\n", "color": "#ff9c1b"},
             {"name": "🔄 零协会", "description": "一个伟大的社区。\n\n", "color": "#e74c3c"},
-            {"name": "📒 气泡文本", "description": "由民间大佬制作的\n气泡mod的汉化版本。\n提取码：fib6", "color": "#3498db"},
+            {"name": "📒 气泡文本", "description": "气泡mod的汉化版本。\n提取码：fib6\n", "color": "#3498db"},
             {"name": "📝 维基", "description": "边狱巴士的灰机wiki。\n\n", "color": "#2ecc71"},
             {"name": "📖 N网", "description": "下载边狱巴士mod。\n\n", "color": "#9b59b6"},
-            {"name": "📦 mod管理", "description": "管理游戏mod。\n\n", "color": "#e67e22"}
+            {"name": "📦 Github", "description": "查看本项目源码\n\n", "color": "#777777"}
         ]
         
         # 使用网格布局创建功能卡片
@@ -633,13 +700,13 @@ class FaustLauncherApp:
         title_label = ttk.Label(self.about_frame, text="ℹ️ 关于 Faust Launcher", style="Title.TLabel")
         title_label.pack(pady=30)
         
-        # 创建内容区域 - 使用深蓝色背景
-        content_frame = tk.Frame(self.about_frame, bg='#34495e')
+        # 创建内容区域
+        content_frame = tk.Frame(self.about_frame, bg=self.bg_color)
         content_frame.pack(fill=tk.BOTH, expand=True, padx=50, pady=20)
         
         # 添加应用程序信息
         about_info = [
-            "🌟 版本: 0.3.9-release",
+            f"🌟 版本: {VERSION_INFO}",
             "👥 开发: FolkSkill"
             "",
             "Faust Launcher 是一个专为懒人但丁设计的现代化一键启动器。"
@@ -659,14 +726,14 @@ class FaustLauncherApp:
             
             info_label = tk.Label(content_frame, 
                                 text=info,
-                                bg='#34495e',
+                                bg=self.bg_color,
                                 fg=color,
                                 font=('Microsoft YaHei UI', 10, weight),
                                 justify=tk.LEFT if info.startswith('   •') else tk.CENTER)
             info_label.pack(anchor=tk.CENTER if not info.startswith('   •') else tk.W, pady=2)
         
         # 创建底部按钮区域 - 使用深蓝色背景
-        buttons_frame = tk.Frame(self.about_frame, bg='#34495e')
+        buttons_frame = tk.Frame(self.about_frame, bg=self.bg_color)
         buttons_frame.pack(pady=30)
         
         # 添加按钮
@@ -690,6 +757,20 @@ class FaustLauncherApp:
             # 添加悬停效果
             button.bind("<Enter>", lambda e, b=button: b.configure(bg=self.darken_color(b.cget('bg'))))
             button.bind("<Leave>", lambda e, b=button, c=btn_data["color"]: b.configure(bg=c))
+
+    def lighten_color(self, color, percent):
+        """颜色变亮"""
+        import colorsys
+        # 将十六进制颜色转换为RGB
+        rgb = tuple(int(color[i:i+2], 16) for i in (1, 3, 5))
+        # 转换为HSL
+        h, l, s = colorsys.rgb_to_hls(rgb[0]/255, rgb[1]/255, rgb[2]/255)
+        # 增加亮度
+        l = min(1.0, l + percent/100)
+        # 转换回RGB
+        r, g, b = colorsys.hls_to_rgb(h, l, s)
+        # 返回十六进制
+        return f"#{int(r*255):02x}{int(g*255):02x}{int(b*255):02x}"
     
     def darken_color(self, color, factor=0.8):
         """加深颜色"""
@@ -703,13 +784,6 @@ class FaustLauncherApp:
             return f'#{r:02x}{g:02x}{b:02x}'
         return color
     
-    def on_tab_changed(self, event):
-        """处理标签页切换事件"""
-        current_tab = self.notebook.select()
-        tab_index = self.notebook.index(current_tab)
-        tab_names = ["主页", "功能页", "工具页","设置", "关于"]  # 更新标签页名称列表
-        # print(f"切换到标签页: {tab_names[tab_index]}")
-    
     def update_translation(self):
         """更新汉化"""
         from threading import Thread
@@ -717,7 +791,7 @@ class FaustLauncherApp:
     
     def show_help(self):
         """显示帮助信息"""
-        Popen("README.txt", shell=True)
+        Popen(["notepad", "README.md"], shell=True)
     
     def open_feature(self, feature):
         """打开指定功能"""
@@ -741,9 +815,9 @@ class FaustLauncherApp:
         elif feature['name'] == "📖 N网":
             # 打开N网
             webbrowser.open("https://www.nexusmods.com/limbuscompany/mods")
-        elif feature['name'] == "📦 mod管理":
-            # 打开mod管理器
-            self.open_mod_manager()
+        elif feature['name'] == "📦 Github":
+            # 打开Github
+            webbrowser.open("https://github.com/folkskill/FaustLauncher")
     
     def open_website(self):
         """打开作者网站"""
@@ -760,8 +834,8 @@ class FaustLauncherApp:
         try:
             # 导入mod管理器模块
             sys.path.append('functions')
-            from functions.mod_manager import open_mod_manager
-            open_mod_manager(self.root)
+            from functions.pages.mod_manager import open_mod_manager
+            open_mod_manager(self)
         except Exception as e:
             print(f"打开mod管理器失败: {e}")
             import tkinter.messagebox as messagebox
@@ -791,6 +865,10 @@ class FaustLauncherApp:
             from threading import Thread
             # 有命令行参数，进入命令行模式
             Thread(target=handle_dowload).start()
+
+        if not os.path.exists("Font/Context/ChineseFont.ttf"):
+            print("错误: 未找到字体文件 Font/Context/ChineseFont.ttf\n请尝试手动添加或者使用汉化更新修复")
+
 
         self.root.after(1000, self.start_background_rotation)
         
@@ -855,7 +933,7 @@ if %errorlevel% equ 0 (
         except Exception as e:
             messagebox.showerror("错误", f"创建文件夹链接时出错: {str(e)}")
 
-def handle_dowload():
+def handle_dowload(need_run_game=False):
     """命令行模式：执行下载翻译、下载气泡、载入mod并启动游戏"""
     
     global dowloading, root, config_path
@@ -871,26 +949,36 @@ def handle_dowload():
         # 检测 workshop 下是否有 LLC_zh-CN 文件夹
         workshop_path = 'workshop/LLC_zh-CN'
         dowload_path = 'workshop'
+
         # 1. 下载翻译
         print("开始下载翻译...")
         sys.path.append('functions')
-        from functions.zeroasso_dow import main as download_translation
+        from functions.dowloads.zeroasso_dow import main as download_translation
         download_translation(dowload_path) # type: ignore
         print("翻译下载完成")
         
         # 2. 下载气泡
         print("开始下载气泡...")
-        from functions.bubble_dow import main as download_bubble
+        from functions.dowloads.bubble_dow import main as download_bubble
         download_bubble(dowload_path) # type: ignore
         print("气泡下载完成")
+
+        # 检查是否需要更新汉化
+        from functions.dowloads.dow_ulits import check_need_up_translate
+        need_update = check_need_up_translate()
+
         # 把 'workshop\LimbusCompany_Data\Lang\LLC_zh-CN' 复制到游戏目录下的 'workshop' 文件夹 并删除 LimbusCompany_Data 文件夹
         import shutil
 
-        if os.path.exists(dowload_path + '/LimbusCompany_Data/Lang/LLC_zh-CN'): # type: ignore
-            shutil.copytree(dowload_path + '/LimbusCompany_Data/Lang/LLC_zh-CN', workshop_path, dirs_exist_ok=True) # type: ignore
-            print("文件夹复制完成")
+        if need_update:
+            print("检测到新的汉化版本，准备更新汉化文件...")
+            if os.path.exists(dowload_path + '/LimbusCompany_Data/Lang/LLC_zh-CN'): # type: ignore
+                shutil.copytree(dowload_path + '/LimbusCompany_Data/Lang/LLC_zh-CN', workshop_path, dirs_exist_ok=True) # type: ignore
+                print("文件夹复制完成")
+            else:
+                print("错误: 未找到 workshop 下的 LLC_zh-CN 文件夹")
         else:
-            print("错误: 未找到 workshop 下的 LLC_zh-CN 文件夹")
+            print("当前汉化已是最新版本，无需更新")
 
         # 删除 LimbusCompany_Data 文件夹
         print("开始删除 LimbusCompany_Data 文件夹...")
@@ -903,7 +991,7 @@ def handle_dowload():
 
         print("汉化下载及处理全部完成！")
 
-        if len(sys.argv) > 1:
+        if len(sys.argv) > 1 or need_run_game:
             # 关闭窗口
             # root.withdraw()
             pass
@@ -911,6 +999,8 @@ def handle_dowload():
             dowloading = False
             return
         
+        # 有参数,运行游戏
+        print("正在启动边狱巴士...")
         run_game()
         
     except Exception as e:
@@ -979,23 +1069,29 @@ def run_game():
         print(f"应用自定义汉化修改时出错: {e}")
     
     # 气泡渐变色处理
-    from functions.handle_colorful import main as handle_colorful
+    from functions.fancy.dialog_colorful import main as handle_colorful
     handle_colorful()
     print("气泡渐变色处理完成")
 
     # 复制字体文件夹到汉化目录下
     print("开始复制字体文件夹到汉化目录下...")
     try:
-        shutil.copytree('Font', 'workshop/LLC_zh-CN', dirs_exist_ok=True) # type: ignore
+        shutil.copytree('Font', config_path + '/LimbusCompany_Data/Lang/LLC_zh-CN/', dirs_exist_ok=True) # type: ignore
         print("字体文件夹复制完成")
     except Exception as e:
         print(f"复制字体文件夹时出错: {e}")
 
-    from functions.zeroasso_dow import create_config_file
+    from functions.dowloads.zeroasso_dow import create_config_file
     create_config_file(settings_manager.get_setting('game_path'))
 
+    # 是否设置用户名称
     if settings_manager.get_setting('enable_show_user_name'):
         set_user_name()
+
+    # 是否进行 EGO 样式美化
+    if settings_manager.get_setting('enable_ego_style'):
+        from functions.fancy.EGO_colorful import main as apply_ego_style
+        apply_ego_style()
 
     # 载入mod并启动游戏
     print("开始载入mod并启动游戏...")
@@ -1106,13 +1202,30 @@ def apply_changes_to_data(original_data, changes):
 def main():
     """主函数"""
     global root
-    
-    # 无命令行参数，正常启动GUI模式
+
     # 创建主窗口
     root = tk.Tk()
+    root.withdraw()  # 先隐藏主窗口
+
+    # 创建启动画面
+    splash, splash_root = create_simple_splash(root)
+
     
-    # 创建应用程序实例
-    app = FaustLauncherApp(root)
+    # 定义应用程序初始化完成回调
+    def on_app_initialized():
+        """应用程序初始化完成后的回调"""
+        # 确保主窗口已经完全显示
+        root.update_idletasks()
+        root.update()
+        
+        # 等待一小段时间确保界面完全渲染
+        root.after(3000, lambda: root.deiconify())
+
+        # 检查设置
+        root.after(3300, app.check_settings)
+
+    # 创建应用程序实例，传入初始化完成回调
+    app = FaustLauncherApp(root, on_initialized=on_app_initialized)
     
     # 启动主循环
     root.mainloop()
