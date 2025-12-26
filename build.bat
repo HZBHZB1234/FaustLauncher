@@ -1,1 +1,1 @@
-pyinstaller.exe -w -F -i "images/icon/icon.ico" main.py
+pyinstaller --noconfirm --onefile --windowed --icon "images/icon/icon.ico" --name "FaustLauncher" --add-data "functions;functions/"  "main.py"
