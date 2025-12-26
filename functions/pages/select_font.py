@@ -3,14 +3,27 @@ from tkinter import ttk, filedialog, messagebox
 import os
 import shutil
 from PIL import Image, ImageTk, ImageFont, ImageDraw
+from functions.window_ulits import center_window
 
 class FontSelectorGUI:
-    def __init__(self):
-        self.root = tk.Toplevel()  # 改为Toplevel而不是Tk
+    def __init__(self, window, root):
+        self.root = tk.Toplevel(root)  # 改为Toplevel而不是Tk
+        self.root.withdraw()  # 先隐藏窗口，防止闪烁
+
         self.root.title("字体替换工具")
         self.root.geometry("700x600")
         self.root.resizable(True, True)
-        self.root.configure(bg='#2c3e50')
+        self.parent = window  # 保存父窗口引用
+        self.root.configure(bg=self.parent.lighten_bg_color)  # 继承父窗口的背景颜色
+
+        center_window(self.root)
+
+        # 设置应用程序图标
+        try:
+            if os.path.exists("images/icon/icon.ico"):
+                self.root.iconbitmap("images/icon/icon.ico")
+        except:
+            pass
         
         # 字体路径
         self.context_font_path = "Font\\Context\\ChineseFont.ttf"
@@ -44,21 +57,21 @@ class FontSelectorGUI:
     def create_widgets(self):
         """创建界面组件"""
         # 主标题
-        title_frame = tk.Frame(self.root, bg='#2c3e50')
+        title_frame = tk.Frame(self.root, bg=self.parent.lighten_bg_color)
         title_frame.pack(fill=tk.X, padx=20, pady=(20, 10))
         
         title_label = tk.Label(title_frame, text="字体替换工具", 
                               font=('Microsoft YaHei UI', 18, 'bold'),
-                              bg='#2c3e50', fg='#ecf0f1')
+                              bg=self.parent.lighten_bg_color, fg='#ecf0f1')
         title_label.pack()
         
         subtitle_label = tk.Label(title_frame, text="管理 Context 和 Title 字体文件",
                                  font=('Microsoft YaHei UI', 10),
-                                 bg='#2c3e50', fg='#bdc3c7')
+                                 bg=self.parent.lighten_bg_color, fg='#bdc3c7')
         subtitle_label.pack(pady=(5, 0))
         
         # 主内容区域
-        main_frame = tk.Frame(self.root, bg='#34495e')
+        main_frame = tk.Frame(self.root, bg=self.parent.bg_color)
         main_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
         # 创建选项卡
@@ -67,23 +80,23 @@ class FontSelectorGUI:
         
         # 设置选项卡样式
         style = ttk.Style()
-        style.configure('TNotebook', background='#34495e')
-        style.configure('TNotebook.Tab', background='#2c3e50', foreground='#ecf0f1',
+        style.configure('TNotebook', background=self.parent.bg_color)
+        style.configure('TNotebook.Tab', background=self.parent.lighten_bg_color, foreground='#ecf0f1',
                        padding=[15, 5], font=('Microsoft YaHei UI', 10))
         style.map('TNotebook.Tab', background=[('selected', '#3498db')])
         
         # Context字体选项卡
-        context_frame = tk.Frame(notebook, bg='#34495e')
+        context_frame = tk.Frame(notebook, bg=self.parent.bg_color)
         notebook.add(context_frame, text="Context 字体")
         self.create_font_tab(context_frame, "Context", self.context_font_path, self.context_preview_data)
         
         # Title字体选项卡
-        title_frame = tk.Frame(notebook, bg='#34495e')
+        title_frame = tk.Frame(notebook, bg=self.parent.bg_color)
         notebook.add(title_frame, text="Title 字体")
         self.create_font_tab(title_frame, "Title", self.title_font_path, self.title_preview_data)
         
         # 状态栏
-        status_frame = tk.Frame(self.root, bg='#2c3e50', height=30)
+        status_frame = tk.Frame(self.root, bg=self.parent.lighten_bg_color, height=30)
         status_frame.pack(fill=tk.X, side=tk.BOTTOM)
         status_frame.pack_propagate(False)
         
@@ -91,24 +104,24 @@ class FontSelectorGUI:
         self.status_var.set("就绪")
         status_label = tk.Label(status_frame, textvariable=self.status_var,
                                font=('Microsoft YaHei UI', 9),
-                               bg='#2c3e50', fg='#95a5a6', anchor=tk.W)
+                               bg=self.parent.lighten_bg_color, fg='#95a5a6', anchor=tk.W)
         status_label.pack(fill=tk.X, padx=20, pady=5)
         
     def create_font_tab(self, parent, font_type, font_path, preview_data):
         """创建字体选项卡"""
         # 当前字体信息区域
-        info_frame = tk.Frame(parent, bg='#34495e')
+        info_frame = tk.Frame(parent, bg=self.parent.bg_color)
         info_frame.pack(fill=tk.X, padx=10, pady=(10, 5))
         
         info_label = tk.Label(info_frame, text=f"{font_type} 字体信息",
                              font=('Microsoft YaHei UI', 12, 'bold'),
-                             bg='#34495e', fg='#ecf0f1', anchor=tk.W)
+                             bg=self.parent.bg_color, fg='#ecf0f1', anchor=tk.W)
         info_label.pack(fill=tk.X)
         
         # 为每个选项卡创建独立的信息文本框
         info_text = tk.Text(info_frame, height=3, width=60,
                            font=('Microsoft YaHei UI', 9),
-                           bg='#2c3e50', fg='#ecf0f1',
+                           bg=self.parent.lighten_bg_color, fg='#ecf0f1',
                            relief=tk.FLAT, borderwidth=1,
                            wrap=tk.WORD)
         info_text.pack(fill=tk.X, pady=(5, 0))
@@ -116,25 +129,25 @@ class FontSelectorGUI:
         preview_data['info_text'] = info_text
         
         # 预览区域
-        preview_frame = tk.Frame(parent, bg='#34495e')
+        preview_frame = tk.Frame(parent, bg=self.parent.bg_color)
         preview_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
         
         preview_label = tk.Label(preview_frame, text="字体预览",
                                font=('Microsoft YaHei UI', 12, 'bold'),
-                               bg='#34495e', fg='#ecf0f1', anchor=tk.W)
+                               bg=self.parent.lighten_bg_color, fg='#ecf0f1', anchor=tk.W)
         preview_label.pack(fill=tk.X)
         
         # 为每个选项卡创建独立的预览画布
-        canvas_frame = tk.Frame(preview_frame, bg='#2c3e50', relief=tk.RAISED, borderwidth=2)
+        canvas_frame = tk.Frame(preview_frame, bg=self.parent.lighten_bg_color, relief=tk.RAISED, borderwidth=2)
         canvas_frame.pack(fill=tk.BOTH, expand=True, pady=(5, 0))
         
         preview_canvas = tk.Canvas(canvas_frame, width=600, height=200, 
-                                  bg='#2c3e50', highlightthickness=0)
+                                  bg=self.parent.lighten_bg_color, highlightthickness=0)
         preview_canvas.pack(fill=tk.BOTH, expand=True, padx=2, pady=2)
         preview_data['canvas'] = preview_canvas
         
         # 按钮区域
-        button_frame = tk.Frame(parent, bg='#34495e')
+        button_frame = tk.Frame(parent, bg=self.parent.bg_color)
         button_frame.pack(fill=tk.X, padx=10, pady=10)
         
         # 创建按钮
@@ -212,7 +225,7 @@ class FontSelectorGUI:
         """更新字体预览"""
         try:
             # 创建更大的预览图像
-            img = Image.new('RGB', (600, 200), color='#2c3e50')
+            img = Image.new('RGB', (600, 200), color=self.parent.lighten_bg_color)
             draw = ImageDraw.Draw(img)
             
             # 加载字体 - 使用更大的字号
@@ -241,7 +254,7 @@ class FontSelectorGUI:
     
     def show_error_preview(self, font_type, preview_data, error_msg=None):
         """显示错误预览"""
-        img = Image.new('RGB', (600, 200), color='#2c3e50')
+        img = Image.new('RGB', (600, 200), color=self.parent.lighten_bg_color)
         draw = ImageDraw.Draw(img)
         
         # 使用系统默认字体
@@ -357,13 +370,10 @@ class FontSelectorGUI:
         # 等待窗口关闭
         self.root.wait_window()
 
-def select_font_gui():
+def select_font_gui(root):
     """主函数"""
     try:
-        app = FontSelectorGUI()
+        app = FontSelectorGUI(root, root.root)
         app.run()
     except Exception as e:
         messagebox.showerror("启动错误", f"无法启动字体选择工具:\n{str(e)}")
-
-if __name__ == "__main__":
-    select_font_gui()

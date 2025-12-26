@@ -3,10 +3,14 @@ from tkinter import ttk, filedialog, messagebox
 from functions.settings_manager import get_settings_manager
 
 class SettingsPage:
-    def __init__(self, parent_frame):
+    def __init__(self, parent_frame, bg_color, lighten_bg_color):
+        """初始化设置页面"""
         self.parent = parent_frame
         self.settings_manager = get_settings_manager()
         self.setting_widgets = {}
+        self.bg_color = bg_color
+        self.lighten_bg_color = lighten_bg_color
+        self.bg_color = bg_color
         self.create_widgets()
         self.auto_refresh()
     
@@ -15,17 +19,17 @@ class SettingsPage:
         # 创建标题
         title_label = ttk.Label(self.parent, text="⚙️ 设置", 
                                font=('Microsoft YaHei UI', 18, 'bold'),
-                               background='#34495e', foreground='white')
+                               background=self.bg_color, foreground='white')
         title_label.pack(pady=20)
         
-        # 创建设置内容容器
-        content_frame = tk.Frame(self.parent, bg='#34495e')
+        # 创建设置内容容器, 居中显示
+        content_frame = tk.Frame(self.parent, bg=self.lighten_bg_color, relief='groove', borderwidth=3)
         content_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=10)
         
         # 创建滚动框架
-        canvas = tk.Canvas(content_frame, bg='#34495e', highlightthickness=0)
+        canvas = tk.Canvas(content_frame, bg=self.bg_color, highlightthickness=0)
         scrollbar = ttk.Scrollbar(content_frame, orient="vertical", command=canvas.yview)
-        scrollable_frame = ttk.Frame(canvas, style='Custom.TFrame')
+        scrollable_frame = ttk.Frame(canvas, style="Card.TFrame")
         
         scrollable_frame.bind(
             "<Configure>",
@@ -56,8 +60,13 @@ class SettingsPage:
         settings = self.settings_manager.get_all_settings()
         
         for i, (key, setting_info) in enumerate(settings.items()):
+            setting_type = setting_info.get('type', 'UNABLE_TO_EDIT')
+
+            if setting_type == 'UNABLE_TO_EDIT':
+                continue  # 跳过无法编辑的设置项
+
             # 创建设置项框架
-            setting_frame = tk.Frame(parent, bg='#2c3e50', relief='raised', borderwidth=1)
+            setting_frame = tk.Frame(parent, bg=self.bg_color, relief='raised', borderwidth=1)
             setting_frame.pack(fill=tk.X, padx=10, pady=8, ipady=8)
             
             # 设置项标题和描述
@@ -66,7 +75,7 @@ class SettingsPage:
             title_label = tk.Label(setting_frame, 
                                  text=setting_name,
                                  font=('Microsoft YaHei UI', 11, 'bold'),
-                                 bg='#2c3e50', fg='white')
+                                 bg=self.bg_color, fg='white')
             title_label.pack(anchor=tk.W, padx=15, pady=(5, 2))
             
             # 添加描述文本（如果description存在且与name不同）
@@ -74,12 +83,11 @@ class SettingsPage:
                 desc_label = tk.Label(setting_frame, 
                                     text=setting_info['description'],
                                     font=('Microsoft YaHei UI', 9),
-                                    bg='#2c3e50', fg='#bdc3c7',
+                                    bg=self.bg_color, fg='#bdc3c7',
                                     wraplength=400, justify=tk.LEFT)
                 desc_label.pack(anchor=tk.W, padx=15, pady=(0, 5))
             
             # 根据类型创建不同的控件
-            setting_type = setting_info.get('type', 'string')
             current_value = self.settings_manager.get_setting(key)
             
             if setting_type == 'boolean':
@@ -107,9 +115,9 @@ class SettingsPage:
                                 variable=var,
                                 command=lambda: self.on_boolean_change(key, var),
                                 font=('Microsoft YaHei UI', 10),
-                                bg='#2c3e50', fg='white',
+                                bg=self.bg_color, fg='white',
                                 selectcolor='#3498db',
-                                activebackground='#2c3e50',
+                                activebackground=self.bg_color,
                                 activeforeground='white')
         checkbox.pack(anchor=tk.W, padx=15, pady=5)
         self.setting_widgets[key] = var
@@ -118,7 +126,7 @@ class SettingsPage:
         """创建字符串控件"""
         if key == 'game_path':
             # 游戏路径特殊处理，添加浏览按钮
-            path_frame = tk.Frame(parent, bg='#2c3e50')
+            path_frame = tk.Frame(parent, bg=self.bg_color)
             path_frame.pack(fill=tk.X, padx=15, pady=5)
             
             entry = tk.Entry(path_frame, 
@@ -146,14 +154,14 @@ class SettingsPage:
     
     def create_numeric_control(self, parent, key, setting_info, current_value):
         """创建数值控件"""
-        control_frame = tk.Frame(parent, bg='#2c3e50')
+        control_frame = tk.Frame(parent, bg=self.bg_color)
         control_frame.pack(fill=tk.X, padx=15, pady=5)
         
         # 标签显示当前值
         value_label = tk.Label(control_frame, 
                              text=f"当前值: {current_value}",
                              font=('Microsoft YaHei UI', 9),
-                             bg='#2c3e50', fg='#bdc3c7')
+                             bg=self.bg_color, fg='#bdc3c7')
         value_label.pack(side=tk.LEFT)
         
         # 滑动条
@@ -168,9 +176,9 @@ class SettingsPage:
                         length=200,
                         showvalue=False,
                         command=lambda v, k=key: self.on_scale_change(k, v, value_label),
-                        bg='#2c3e50', fg='white',
-                        troughcolor='#34495e',
-                        highlightbackground='#2c3e50')
+                        bg=self.bg_color, fg='white',
+                        troughcolor=self.bg_color,
+                        highlightbackground=self.bg_color)
         scale.set(current_value)
         scale.pack(side=tk.RIGHT, fill=tk.X, expand=True)
         
@@ -178,7 +186,7 @@ class SettingsPage:
     
     def create_action_buttons(self, parent):
         """创建操作按钮"""
-        button_frame = tk.Frame(parent, bg='#34495e')
+        button_frame = tk.Frame(parent, bg=self.bg_color)
         button_frame.pack(fill=tk.X, pady=20)
         
         # 重置所有按钮
@@ -266,6 +274,6 @@ class SettingsPage:
         self.save_all_settings()
         self.parent.after(1000, self.auto_refresh)  # 每1秒刷新一次
 
-def init_settings_page(parent_frame):
+def init_settings_page(parent_frame, bg_color:str, lighten_bg_color:str) -> SettingsPage:
     """初始化设置页面"""
-    return SettingsPage(parent_frame)
+    return SettingsPage(parent_frame, bg_color, lighten_bg_color)

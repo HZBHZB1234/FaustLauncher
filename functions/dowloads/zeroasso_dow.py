@@ -230,7 +230,11 @@ def download_and_extract(config_path: str = "") -> bool:
         print(f"\n{'='*50}")
         print(f"开始处理: {file_info['name']}")
         print(f"{'='*50}")
-        
+
+        if os.path.exists("Font/Context/ChineseFont.ttf") and \
+           file_info['name'] == 'LLCCN-Font':
+            continue  # 已存在字体文件，跳过下载
+
         temp_file = os.path.join(temp_dir, file_info['temp_filename'])
         
         try:
@@ -266,6 +270,20 @@ def download_and_extract(config_path: str = "") -> bool:
         
         print(f"\n✅ 文件已成功解压到: {game_path}")
         print(f"✅ 成功处理了 {success_count}/{len(download_files)} 个文件")
+
+        if not os.path.exists("Font/Context/ChineseFont.ttf"):
+            import shutil
+
+            print("⚠️ 注意: 本地字体文件缺失，正在修复...")
+            # 把 workshop/LLC_zh-CN/Font/ 剪切到当前路径
+            source_dir = os.path.join('workshop', 'LLC_zh-CN', 'Font', 'Context', 'ChineseFont.ttf')
+            if os.path.exists(source_dir):
+                try:
+                    shutil.move(source_dir, 'Font'+'/Context')
+                    print("✅ 字体文件已移动到 Font/Context/ 下")
+                except Exception as e:
+                    print(f"❌ 移动字体文件失败: {e}")
+
         return True
     else:
         print("\n❌ 所有文件处理失败")

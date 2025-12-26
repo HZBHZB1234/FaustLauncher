@@ -4,11 +4,13 @@ import os
 import json
 import re
 from threading import Thread
+from functions.window_ulits import center_window
 
 class CustomTranslationTool:
     """自定义汉化工具类"""
     
-    def __init__(self, parent_window):
+    def __init__(self, root, parent_window):
+        self.root = root
         self.parent_window = parent_window
         self.current_file = None
         self.original_data = {}
@@ -21,6 +23,8 @@ class CustomTranslationTool:
 
         self.parent_window = tk.Toplevel(self.parent_window)
         self.parent_window.withdraw()
+        self.parent_window.geometry("900x600")
+        center_window(self.parent_window, False)
 
         self.parent_window.title("🔧 自定义汉化工具")
         
@@ -33,6 +37,7 @@ class CustomTranslationTool:
 
         # 确保workshop目录存在
         os.makedirs(self.workshop_dir, exist_ok=True)
+
         
         # 确保changes.json文件存在
         self.ensure_changes_file()
@@ -41,7 +46,7 @@ class CustomTranslationTool:
         self.init_ui()
         
         # 加载现有的修改记录
-        self.load_existing_changes()
+        # self.load_existing_changes()
         
         # 刷新文件树
         self.refresh_file_tree()
@@ -67,46 +72,32 @@ class CustomTranslationTool:
     def init_ui(self):
         """初始化用户界面"""
         # 创建主容器 - 使用parent_window作为父容器
-        main_container = tk.Frame(self.parent_window, bg='#34495e')
-        main_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-        
-        # 创建标题
-        title_label = tk.Label(main_container, 
-                               text="🔧 自定义汉化工具", 
-                               bg='#34495e', fg='white',
-                               font=('Microsoft YaHei UI', 16, 'bold'))
-        title_label.pack(pady=10)
-        
-        # 创建说明标签
-        desc_label = tk.Label(main_container,
-                              text="编辑workshop目录下的JSON文件，修改值内容但不删除键",
-                              bg='#34495e', fg='#bdc3c7',
-                              font=('Microsoft YaHei UI', 10))
-        desc_label.pack(pady=5)
-        
+        main_container = tk.Frame(self.parent_window, bg=self.root.bg_color)
+        main_container.pack(fill=tk.BOTH, expand=True)
+
         # 创建左右分栏容器
-        split_frame = tk.Frame(main_container, bg='#34495e')
+        split_frame = tk.Frame(main_container, bg=self.root.bg_color)
         split_frame.pack(fill=tk.BOTH, expand=True)
         
         # 左侧文件树区域
-        left_frame = tk.Frame(split_frame, bg='#2c3e50', relief='raised', borderwidth=1)
+        left_frame = tk.Frame(split_frame, bg=self.root.lighten_bg_color, relief='raised', borderwidth=1)
         left_frame.pack(side=tk.LEFT, fill=tk.Y, padx=(0, 5))
         left_frame.pack_propagate(False)
         left_frame.configure(width=300)
         
         # 左侧标题
         left_title = tk.Label(left_frame, text="📁 文件树", 
-                             bg='#2c3e50', fg='white', 
+                             bg=self.root.lighten_bg_color, fg='white', 
                              font=('Microsoft YaHei UI', 11, 'bold'))
         left_title.pack(pady=10)
         
         # 搜索框和刷新按钮在同一行
-        search_refresh_frame = tk.Frame(left_frame, bg='#2c3e50')
+        search_refresh_frame = tk.Frame(left_frame, bg=self.root.lighten_bg_color)
         search_refresh_frame.pack(fill=tk.X, padx=10, pady=5)
         
         # 搜索框
         search_label = tk.Label(search_refresh_frame, text="🔍 搜索:", 
-                               bg='#2c3e50', fg='white',
+                               bg=self.root.lighten_bg_color, fg='white',
                                font=('Microsoft YaHei UI', 9))
         search_label.pack(side=tk.LEFT)
         
@@ -126,7 +117,7 @@ class CustomTranslationTool:
         refresh_btn.pack(side=tk.RIGHT)
         
         # 文件树容器
-        tree_frame = tk.Frame(left_frame, bg='#2c3e50')
+        tree_frame = tk.Frame(left_frame, bg=self.root.lighten_bg_color)
         tree_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
         # 文件树滚动条
@@ -152,28 +143,28 @@ class CustomTranslationTool:
                         foreground="white", 
                         fieldbackground="#1e1e1e")
         style.configure("Treeview.Heading", 
-                        background="#2c3e50", 
+                        background=self.root.lighten_bg_color, 
                         foreground="white")
         
         # 右侧编辑区域
-        right_frame = tk.Frame(split_frame, bg='#2c3e50', relief='raised', borderwidth=1)
+        right_frame = tk.Frame(split_frame, bg=self.root.lighten_bg_color, relief='raised', borderwidth=1)
         right_frame.pack(side=tk.RIGHT, fill=tk.BOTH, expand=True)
         
         # 右侧标题和工具栏
-        toolbar_frame = tk.Frame(right_frame, bg='#2c3e50')
+        toolbar_frame = tk.Frame(right_frame, bg=self.root.lighten_bg_color)
         toolbar_frame.pack(fill=tk.X, padx=10, pady=10)
         
         right_title = tk.Label(toolbar_frame, text="📝 编辑区域", 
-                              bg='#2c3e50', fg='white',
+                              bg=self.root.lighten_bg_color, fg='white',
                               font=('Microsoft YaHei UI', 11, 'bold'))
         right_title.pack(side=tk.LEFT)
         
         # 跳转工具栏
-        jump_frame = tk.Frame(toolbar_frame, bg='#2c3e50')
+        jump_frame = tk.Frame(toolbar_frame, bg=self.root.lighten_bg_color)
         jump_frame.pack(side=tk.RIGHT)
         
         jump_label = tk.Label(jump_frame, text="跳转到行:", 
-                             bg='#2c3e50', fg='white',
+                             bg=self.root.lighten_bg_color, fg='white',
                              font=('Microsoft YaHei UI', 9))
         jump_label.pack(side=tk.LEFT, padx=(0, 5))
         
@@ -196,7 +187,7 @@ class CustomTranslationTool:
         search_tool_frame.pack(side=tk.RIGHT, padx=20)
         
         search_tool_label = tk.Label(search_tool_frame, text="查找:", 
-                                    bg='#2c3e50', fg='white',
+                                    bg=self.root.lighten_bg_color, fg='white',
                                     font=('Microsoft YaHei UI', 9))
         search_tool_label.pack(side=tk.LEFT, padx=(0, 5))
         
@@ -217,13 +208,13 @@ class CustomTranslationTool:
         # 当前文件路径显示
         self.current_file_label = tk.Label(right_frame, 
                                           text="未选择文件",
-                                          bg='#2c3e50', fg='#95a5a6',
+                                          bg=self.root.lighten_bg_color, fg='#95a5a6',
                                           font=('Microsoft YaHei UI', 9),
                                           justify=tk.LEFT)
         self.current_file_label.pack(pady=5, padx=10, anchor=tk.W)
         
         # 编辑容器
-        edit_container = tk.Frame(right_frame, bg='#2c3e50')
+        edit_container = tk.Frame(right_frame, bg=self.root.lighten_bg_color)
         edit_container.pack(fill=tk.BOTH, expand=True, padx=10, pady=5)
         
         # 创建行号框架
@@ -233,7 +224,7 @@ class CustomTranslationTool:
         # 行号文本框
         self.line_numbers = tk.Text(line_frame, 
                                    width=4, 
-                                   bg='#2c3e50', 
+                                   bg=self.root.lighten_bg_color, 
                                    fg='#95a5a6',
                                    font=('Consolas', 10),
                                    state='disabled',
@@ -268,7 +259,7 @@ class CustomTranslationTool:
         edit_scrollbar.config(command=self.on_scrollbar_move)
         
         # 操作按钮区域
-        button_frame = tk.Frame(right_frame, bg='#2c3e50')
+        button_frame = tk.Frame(right_frame, bg=self.root.lighten_bg_color)
         button_frame.pack(pady=10)
         
         # 撤销按钮
@@ -306,7 +297,7 @@ class CustomTranslationTool:
         # 状态标签
         self.status_label = tk.Label(right_frame, 
                                     text="就绪",
-                                    bg='#2c3e50', fg='#95a5a6',
+                                    bg=self.root.lighten_bg_color, fg='#95a5a6',
                                     font=('Microsoft YaHei UI', 9))
         self.status_label.pack(pady=5)
     
@@ -944,4 +935,4 @@ class CustomTranslationTool:
         self.parent_window.after(10000, self.cycle_update)
 
 def open_custom_translation_tool(root):
-    CustomTranslationTool(root)
+    CustomTranslationTool(root, root.root)

@@ -1,23 +1,29 @@
 import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import os
-import sys
 import shutil
 from pathlib import Path
+from functions.window_ulits import center_window
 
 class ModManager:
-    def __init__(self, parent):
+    def __init__(self, parent_root, parent):
         self.parent = parent
         self.mod_dir = self.get_mod_directory()
         self.allowed_extensions = {'.bank', '.carra2'}
         self.disabled_suffix = '.disabled'
         
         # 创建子窗口
-        self.window = tk.Toplevel(parent)
+        self.window = tk.Toplevel(parent_root)
+        self.window.withdraw()  # 先隐藏窗口，防止闪烁
+
         self.window.title("🎮 Mod管理器")
-        self.window.geometry("900x650")
+        self.window.geometry("800x650")
         self.window.resizable(True, True)
-        self.window.configure(bg='#2c3e50')
+        self.window.configure(bg=parent.bg_color)
+
+        center_window(self.window)
+
+        self.parent = parent
         
         # 设置窗口图标
         try:
@@ -27,22 +33,22 @@ class ModManager:
             pass
         
         # 创建主框架
-        self.main_frame = tk.Frame(self.window, bg='#2c3e50')
+        self.main_frame = tk.Frame(self.window, bg=parent.bg_color)
         self.main_frame.pack(fill=tk.BOTH, expand=True, padx=15, pady=15)
         
         # 创建标题
-        title_frame = tk.Frame(self.main_frame, bg='#2c3e50')
+        title_frame = tk.Frame(self.main_frame, bg=parent.bg_color)
         title_frame.pack(fill=tk.X, pady=(0, 10))
         
         title_label = tk.Label(title_frame, text="🎮 Mod管理器", 
                               font=('Microsoft YaHei UI', 20, 'bold'),
-                              bg='#2c3e50', fg='#ecf0f1')
+                              bg=parent.bg_color, fg='#ecf0f1')
         title_label.pack(pady=5)
         
         # 创建路径显示
         path_label = tk.Label(title_frame, text=f"Mod目录: {self.mod_dir}",
                              font=('Microsoft YaHei UI', 10),
-                             bg='#2c3e50', fg='#bdc3c7')
+                             bg=parent.bg_color, fg='#bdc3c7')
         path_label.pack()
         
         self.set_style()
@@ -73,11 +79,11 @@ class ModManager:
     
     def create_toolbar(self):
         """创建工具栏"""
-        toolbar_frame = tk.Frame(self.main_frame, bg='#34495e', relief=tk.RAISED, borderwidth=1)
+        toolbar_frame = tk.Frame(self.main_frame, bg=self.parent.bg_color, relief=tk.RAISED, borderwidth=1)
         toolbar_frame.pack(fill=tk.X, pady=(0, 10))
         
         # 工具栏内部容器
-        toolbar_inner = tk.Frame(toolbar_frame, bg='#34495e')
+        toolbar_inner = tk.Frame(toolbar_frame, bg=self.parent.bg_color)
         toolbar_inner.pack(padx=10, pady=8)
         
         # 添加文件按钮
@@ -147,11 +153,11 @@ class ModManager:
     def create_file_list(self):
         """创建文件列表"""
         # 创建Treeview框架
-        tree_frame = tk.Frame(self.main_frame, bg='#34495e', relief=tk.SUNKEN, borderwidth=1)
+        tree_frame = tk.Frame(self.main_frame, bg=self.parent.bg_color, relief=tk.SUNKEN, borderwidth=1)
         tree_frame.pack(fill=tk.BOTH, expand=True)
         
         # 创建列标题框架
-        header_frame = tk.Frame(tree_frame, bg='#2c3e50', height=30)
+        header_frame = tk.Frame(tree_frame, bg=self.parent.bg_color, height=30)
         header_frame.pack(fill=tk.X)
         header_frame.pack_propagate(False)
         
@@ -162,14 +168,14 @@ class ModManager:
         for i, (col, width) in enumerate(zip(columns, widths)):
             label = tk.Label(header_frame, text=col, 
                            font=('Microsoft YaHei UI', 10, 'bold'),
-                           bg='#2c3e50', fg='#ecf0f1')
+                           bg=self.parent.bg_color, fg='#ecf0f1')
             if i == len(columns) - 1:
                 label.pack(side=tk.RIGHT, padx=5)
             else:
                 label.pack(side=tk.LEFT, padx=5)
         
         # 创建滚动条
-        scrollbar = tk.Scrollbar(tree_frame, bg='#34495e', troughcolor='#2c3e50')
+        scrollbar = tk.Scrollbar(tree_frame, bg=self.parent.bg_color, troughcolor=self.parent.lighten_bg_color)
         scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
         
         # 创建Treeview
@@ -201,7 +207,7 @@ class ModManager:
     
     def create_status_bar(self):
         """创建状态栏"""
-        status_frame = tk.Frame(self.main_frame, bg='#2c3e50', height=25)
+        status_frame = tk.Frame(self.main_frame, bg=self.parent.bg_color, height=25)
         status_frame.pack(fill=tk.X, side=tk.BOTTOM, pady=(10, 0))
         status_frame.pack_propagate(False)
         
@@ -209,7 +215,7 @@ class ModManager:
         self.status_var.set("就绪 - 双击文件可打开，右键点击可快速操作")
         status_label = tk.Label(status_frame, textvariable=self.status_var,
                                font=('Microsoft YaHei UI', 9),
-                               bg='#2c3e50', fg='#95a5a6', anchor=tk.W)
+                               bg=self.parent.bg_color, fg='#95a5a6', anchor=tk.W)
         status_label.pack(fill=tk.X, padx=10, pady=5)
     
     def show_context_menu(self, event):
@@ -219,8 +225,8 @@ class ModManager:
             self.tree.selection_set(item)
             
             # 创建右键菜单
-            menu = tk.Menu(self.window, tearoff=0, bg='#34495e', fg='#ecf0f1',
-                          activebackground='#3498db', activeforeground='white')
+            menu = tk.Menu(self.window, tearoff=0, bg=self.parent.bg_color, fg='#ecf0f1',
+                          activebackground=self.parent.lighten_bg_color, activeforeground='white')
             
             filename = self.tree.item(item, 'text').split(' ', 1)[1]
             file_path = os.path.join(self.mod_dir, filename)
@@ -511,27 +517,21 @@ class ModManager:
         
         # 配置Treeview样式
         style.configure('Treeview', 
-                       background='#34495e',
+                       background=self.parent.bg_color,
                        foreground='#ecf0f1',
-                       fieldbackground='#34495e',
+                       fieldbackground=self.parent.bg_color,
                        borderwidth=0)
         
         style.configure('Treeview.Heading',
-                       background='#2c3e50',
+                       background=self.parent.bg_color,
                        foreground='#ecf0f1',
                        relief='flat',
                        borderwidth=0)
         
         style.map('Treeview', 
-                 background=[('selected', '#3498db')],
+                 background=[('selected', self.parent.lighten_bg_color)],
                  foreground=[('selected', 'white')])
 
 def open_mod_manager(parent):
     """打开Mod管理器"""
-    return ModManager(parent)
-
-if __name__ == "__main__":
-    root = tk.Tk()
-    root.withdraw()  # 隐藏主窗口
-    mod_manager = ModManager(root)
-    root.mainloop()
+    return ModManager(parent.root, parent)

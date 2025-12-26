@@ -3,6 +3,7 @@ import os
 import re
 from typing import List, Dict, Tuple
 from settings_manager import get_settings_manager
+from functions.window_ulits import center_window
 
 gradient_rate = get_settings_manager().get_setting('bubble_text_gradient_rate')
 game_path = get_settings_manager().get_setting('game_path')
@@ -148,7 +149,7 @@ def process_dlg_text(dlg_text: str, gradient_rate: float = 2.0) -> str:
     # 替换原始文本中的对应部分
     return dlg_text.replace(match.group(0), processed_text)
 
-def create_gradient_test_gui():
+def create_gradient_test_gui(window, root):
     """创建渐变文本测试GUI界面"""
     import tkinter as tk
     from tkinter import ttk, scrolledtext, colorchooser, font
@@ -208,21 +209,24 @@ def create_gradient_test_gui():
     
     # 重置功能
     def reset_settings():
-        start_color_var.set("#6e44a6")
+        start_color_var.set("#00fff7")
         end_color_var.set("#ffffff")
-        start_color_canvas.configure(bg="#6e44a6")
+        start_color_canvas.configure(bg="#ffffff")
         end_color_canvas.configure(bg="#ffffff")
         gradient_scale.set(2.0)
         gradient_value_label.config(text="0.1")
         text_entry.delete("1.0", tk.END)
-        text_entry.insert("1.0", "呼，洗盘子的家伙们\n也会捅刀过来。")
+        text_entry.insert("1.0", "你也将安息, 化作哀蝶消散吧...")
         update_preview()
     
     # 创建主窗口
-    root = tk.Tk()
+    root = tk.Toplevel(root)
+    root.withdraw()
     root.title("渐变文本生成工具")
     root.geometry("600x700")
     root.resizable(True, True)
+
+    center_window(root)
     
     # 设置窗口图标（与main.py保持一致）
     try:
@@ -236,19 +240,19 @@ def create_gradient_test_gui():
     style.theme_use('clam')
     
     # 配置样式（使用main.py的颜色方案）
-    style.configure("TFrame", background='#34495e')
-    style.configure("TLabel", background='#34495e', foreground='white', font=('Microsoft YaHei UI', 10))
+    style.configure("TFrame", background=window.bg_color)
+    style.configure("TLabel", background=window.bg_color, foreground='white', font=('Microsoft YaHei UI', 10))
     style.configure("TButton", background='#3498db', foreground='white', font=('Microsoft YaHei UI', 9, 'bold'))
-    style.configure("TLabelframe", background='#f8f9fa', foreground='#2c3e50')
-    style.configure("TLabelframe.Label", background='#f8f9fa', foreground='#2c3e50', font=('Microsoft YaHei UI', 11, 'bold'))
-    style.configure("TScale", background='#34495e')
+    style.configure("TLabelframe", background='#f8f9fa', foreground=window.lighten_bg_color)
+    style.configure("TLabelframe.Label", background='#f8f9fa', foreground=window.lighten_bg_color, font=('Microsoft YaHei UI', 11, 'bold'))
+    style.configure("TScale", background=window.bg_color)
     
     # 创建变量
-    start_color_var = tk.StringVar(value="#6e44a6")
+    start_color_var = tk.StringVar(value="#00fff7")
     end_color_var = tk.StringVar(value="#ffffff")
     
     # 创建主容器（使用main.py的深蓝色背景）
-    main_frame = tk.Frame(root, bg='#34495e', padx=20, pady=20)
+    main_frame = tk.Frame(root, bg=window.bg_color, padx=20, pady=20)
     main_frame.pack(fill=tk.BOTH, expand=True)
     
     # 配置网格权重
@@ -262,7 +266,7 @@ def create_gradient_test_gui():
     title_font = font.Font(family='Microsoft YaHei UI', size=18, weight='bold')
     title_label = tk.Label(main_frame, 
                           text="✨ 渐变文本生成工具 ✨", 
-                          bg='#34495e', 
+                          bg=window.bg_color, 
                           fg='white', 
                           font=title_font)
     title_label.grid(row=0, column=0, columnspan=3, pady=(0, 30))
@@ -274,12 +278,12 @@ def create_gradient_test_gui():
     color_frame.columnconfigure(3, weight=1)
     
     # 区域标题
-    color_title = tk.Label(color_frame, text="🎨 颜色设置", bg='#f8f9fa', fg='#2c3e50', 
+    color_title = tk.Label(color_frame, text="🎨 颜色设置", bg='#f8f9fa', fg=window.lighten_bg_color, 
                           font=('Microsoft YaHei UI', 12, 'bold'))
     color_title.grid(row=0, column=0, columnspan=6, sticky=tk.W, pady=(0, 10))
     
     # 起始颜色
-    tk.Label(color_frame, text="起始颜色:", bg='#f8f9fa', fg='#2c3e50', 
+    tk.Label(color_frame, text="起始颜色:", bg='#f8f9fa', fg=window.lighten_bg_color, 
             font=('Microsoft YaHei UI', 10)).grid(row=1, column=0, sticky=tk.W, padx=(0, 10))
     start_color_canvas = tk.Canvas(color_frame, width=30, height=30, bg=start_color_var.get(), 
                                   relief="solid", borderwidth=1, highlightthickness=0)
@@ -291,7 +295,7 @@ def create_gradient_test_gui():
     start_color_btn.grid(row=1, column=2, padx=(0, 30))
     
     # 结束颜色
-    tk.Label(color_frame, text="结束颜色:", bg='#f8f9fa', fg='#2c3e50', 
+    tk.Label(color_frame, text="结束颜色:", bg='#f8f9fa', fg=window.lighten_bg_color, 
             font=('Microsoft YaHei UI', 10)).grid(row=1, column=3, sticky=tk.W, padx=(0, 10))
     end_color_canvas = tk.Canvas(color_frame, width=30, height=30, bg=end_color_var.get(), 
                                 relief="solid", borderwidth=1, highlightthickness=0)
@@ -308,19 +312,19 @@ def create_gradient_test_gui():
     gradient_frame.columnconfigure(1, weight=1)
     
     # 区域标题
-    gradient_title = tk.Label(gradient_frame, text="📊 渐变度设置", bg='#f8f9fa', fg='#2c3e50', 
+    gradient_title = tk.Label(gradient_frame, text="📊 渐变度设置", bg='#f8f9fa', fg=window.lighten_bg_color, 
                              font=('Microsoft YaHei UI', 12, 'bold'))
     gradient_title.grid(row=0, column=0, columnspan=3, sticky=tk.W, pady=(0, 10))
     
-    tk.Label(gradient_frame, text="渐变度 (值越大渐变越快):", bg='#f8f9fa', fg='#2c3e50', 
+    tk.Label(gradient_frame, text="渐变度 (值越大渐变越快):", bg='#f8f9fa', fg=window.lighten_bg_color, 
             font=('Microsoft YaHei UI', 10)).grid(row=1, column=0, sticky=tk.W)
     
     gradient_scale = tk.Scale(gradient_frame, from_=0.1, to=5.0, resolution=0.1,orient=tk.HORIZONTAL,
-                             command=update_preview, bg='#f8f9fa', fg='#2c3e50', 
+                             command=update_preview, bg='#f8f9fa', fg=window.lighten_bg_color, 
                              highlightbackground='#bdc3c7', troughcolor='#ecf0f1')
     gradient_scale.grid(row=1, column=1, sticky=(tk.W, tk.E), padx=(10, 10)) # type: ignore
-    
-    gradient_value_label = tk.Label(gradient_frame, text="0.1", bg='#f8f9fa', fg='#2c3e50', 
+
+    gradient_value_label = tk.Label(gradient_frame, text="0.1", bg='#f8f9fa', fg=window.lighten_bg_color, 
                                    font=('Microsoft YaHei UI', 10, 'bold'))
     gradient_value_label.grid(row=1, column=2)
     
@@ -337,15 +341,15 @@ def create_gradient_test_gui():
     text_frame.rowconfigure(1, weight=1)
     
     # 区域标题
-    text_title = tk.Label(text_frame, text="📝 输入文本", bg='#f8f9fa', fg='#2c3e50', 
+    text_title = tk.Label(text_frame, text="📝 输入文本", bg='#f8f9fa', fg=window.lighten_bg_color, 
                          font=('Microsoft YaHei UI', 12, 'bold'))
     text_title.grid(row=0, column=0, sticky=tk.W, pady=(0, 10))
     
     text_entry = scrolledtext.ScrolledText(text_frame, width=60, height=6, wrap=tk.WORD, 
-                                          bg='white', fg='#2c3e50', font=('Microsoft YaHei UI', 10),
+                                          bg='white', fg=window.lighten_bg_color, font=('Microsoft YaHei UI', 10),
                                           relief='solid', borderwidth=1)
     text_entry.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S)) # type: ignore
-    text_entry.insert("1.0", "呼，洗盘子的家伙们\n也会捅刀过来。")
+    text_entry.insert("1.0", "你也将安息, 化作哀蝶消散吧...")
     text_entry.bind("<KeyRelease>", update_preview)
     
     # Unity富文本区域（卡片式设计）
@@ -355,17 +359,17 @@ def create_gradient_test_gui():
     html_frame.rowconfigure(1, weight=1)
     
     # 区域标题
-    html_title = tk.Label(html_frame, text="🎯 生成的 Unity 富文本", bg='#f8f9fa', fg='#2c3e50', 
+    html_title = tk.Label(html_frame, text="🎯 生成的 Unity 富文本", bg='#f8f9fa', fg=window.lighten_bg_color, 
                          font=('Microsoft YaHei UI', 12, 'bold'))
     html_title.grid(row=0, column=0, sticky=tk.W, pady=(0, 10))
     
     html_text = scrolledtext.ScrolledText(html_frame, width=60, height=4, wrap=tk.WORD, state=tk.DISABLED,
-                                         bg='#f5f5f5', fg='#2c3e50', font=('Consolas', 9),
+                                         bg='#f5f5f5', fg=window.lighten_bg_color, font=('Consolas', 9),
                                          relief='solid', borderwidth=1)
     html_text.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S)) # type: ignore
     
     # 按钮区域
-    button_frame = tk.Frame(main_frame, bg='#34495e')
+    button_frame = tk.Frame(main_frame, bg=window.bg_color)
     button_frame.grid(row=5, column=0, columnspan=3, pady=(20, 0))
     
     # 按钮样式（与main.py保持一致）
@@ -408,7 +412,7 @@ def create_gradient_test_gui():
     close_btn.bind("<Leave>", lambda e: on_leave(close_btn, '#e74c3c'))
     
     # 状态栏
-    status_label = tk.Label(main_frame, text="✨ 准备就绪", bg='#34495e', fg='#ecf0f1', 
+    status_label = tk.Label(main_frame, text="✨ 准备就绪", bg=window.bg_color, fg='#ecf0f1', 
                            font=('Microsoft YaHei UI', 9))
     status_label.grid(row=6, column=0, columnspan=3, sticky=tk.W, pady=(15, 0))
     
@@ -417,10 +421,10 @@ def create_gradient_test_gui():
     
     return root
 
-def test_color_gradient_gui():
+def test_color_gradient_gui(root):
     """启动渐变文本测试GUI"""
     try:
-        root = create_gradient_test_gui()
+        root = create_gradient_test_gui(root, root.root)
         root.mainloop()
         return True
     except Exception as e:
@@ -632,7 +636,8 @@ def maint():
         return True
     
     elif choice == "4":
-        return test_color_gradient_gui()
+        pass
+        # return test_color_gradient_gui()
     
     else:
         print("❌ 无效选择")

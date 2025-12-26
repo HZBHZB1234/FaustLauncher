@@ -17,7 +17,10 @@ def main(game_path: str):
     try:
         print("启动游戏...")
         run = [exe_path, game_path] if settings_manager.get_setting("enable_mods") else [game_path]
-        subprocess.Popen([exe_path, game_path])
+        flags = subprocess.CREATE_NO_WINDOW if settings_manager.get_setting("hide_mod_load") else 0
+
+        # 使用CREATE_NO_WINDOW标志隐藏窗口
+        subprocess.Popen(run, creationflags=flags)
         return True
     except Exception as e:
         print(f"启动失败: {e}")

@@ -1,4 +1,4 @@
-from sql_manager import *
+from functions.dowloads.sql_manager import *
 
 def download_bubble_files(config_path: str = "") -> bool:
     """从数据库下载JSON文件到游戏目录"""
