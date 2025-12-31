@@ -1,6 +1,10 @@
 from json import load
+import os
 
 def check_need_up_translate() -> bool:
+    if not os.path.exists('workshop/LLC_zh-CN/info/version.json'):
+        return True
+
     version_timestamp = load(
         open('workshop/LimbusCompany_Data/Lang/LLC_zh-CN/info/version.json', 
              'r', encoding='utf-8')
