@@ -1,2 +1,1 @@
-E:\projects\python\FaustLauncher\main.exe "D:/steam/steamapps/common/Limbus Company/LimbusCompany.exe"
-pause
+_internal\venv314\Scripts\python.exe main.py

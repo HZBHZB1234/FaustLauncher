@@ -11,6 +11,7 @@ from functions.pages.settings_page import init_settings_page
 from functions.settings_manager import get_settings_manager
 from functions.pages.loading_info import create_simple_splash
 from functions.window_ulits import center_window
+from functions.dowloads.sql_manager import check_new_version, notify_new_version
 
 # 添加自定义汉化工具导入
 try:
@@ -843,6 +844,7 @@ class FaustLauncherApp:
 
     def check_settings(self):
         global config_path, settings_manager
+        version_info = settings_manager.get_setting("version_info")
 
         if not settings_manager.get_setting("game_path"):
             print("错误: 未配置游戏路径")
@@ -854,9 +856,21 @@ class FaustLauncherApp:
                 settings_manager.save_settings()
                 self.settings_page.refresh_all_displays()
 
+                has_update, latest_info = check_new_version(version_info)
+                notify_new_version(latest_info)
+
             else:
                 print("错误: 未选择游戏文件")
                 os._exit(-1)
+
+        # 或者单独检测
+        has_update, latest_info = check_new_version(version_info)
+        if has_update:
+            print(f"启动器的新版本已经发布: {latest_info['version_name']}")
+            notify_new_version(latest_info)
+
+        else:
+            print("当前启动器已是最新版本")
 
         config_path = settings_manager.get_setting("game_path")
 
@@ -868,7 +882,6 @@ class FaustLauncherApp:
 
         if not os.path.exists("Font/Context/ChineseFont.ttf"):
             print("错误: 未找到字体文件 Font/Context/ChineseFont.ttf\n请尝试手动添加或者使用汉化更新修复")
-
 
         self.root.after(1000, self.start_background_rotation)
         
@@ -937,6 +950,8 @@ def handle_dowload(need_run_game=False):
     """命令行模式：执行下载翻译、下载气泡、载入mod并启动游戏"""
     
     global dowloading, root, config_path
+    import threading
+    from time import sleep
 
     if dowloading:
         return
@@ -953,8 +968,14 @@ def handle_dowload(need_run_game=False):
         # 1. 下载翻译
         print("开始下载翻译...")
         sys.path.append('functions')
-        from functions.dowloads.zeroasso_dow import main as download_translation
-        download_translation(dowload_path) # type: ignore
+        from functions.dowloads.zeroasso_dow import main_gui as download_translation
+        gui = download_translation(root, dowload_path) # type: ignore
+        dt = threading.Thread(target=gui.root.mainloop)
+
+        while gui.is_downloading:
+            sleep(1)
+        
+        del dt
         print("翻译下载完成")
         
         # 2. 下载气泡
@@ -1000,11 +1021,10 @@ def handle_dowload(need_run_game=False):
             return
         
         # 有参数,运行游戏
-        print("正在启动边狱巴士...")
         run_game()
         
     except Exception as e:
-        print(f"执行过程中出错: {e}")
+        print(f"下载过程中出错: {e}")
         return
     
     print("启动器模式执行完成，程序退出")
