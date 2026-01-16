@@ -41,3 +41,8 @@
 
 ## 渐变色生成器
 生成untity渐变色富文本，可以拿来改技能名称？
+
+# 许可证  
+本项目使用[MIT](https://github.com/folkskill/FaustLauncher/blob/main/LICENSE)许可证进行分发  
+
+本项目中部分代码来自[LCTA](https://github.com/HZBHZB1234/LCTA-Limbus-company-transfer-auto)，根据[MIT](https://github.com/HZBHZB1234/LCTA-Limbus-company-transfer-auto/blob/main/LICENSE)许可协议使用。
