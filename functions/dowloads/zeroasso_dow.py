@@ -164,6 +164,8 @@ class DownloadGUI:
                 self.root.destroy()
             else:
                 self.current_file_var.set("❌ 下载失败，请检查错误信息")
+                time.sleep(3)
+                self.root.destroy()
         except Exception as e:
             self.current_file_var.set(f"❌ 下载过程中出现错误: {e}")
         finally:
@@ -386,7 +388,7 @@ def download_file_with_gui(url, local_filename, gui, file_name):
         gui.current_file_var.set(f"正在下载: {file_name}")
         
         # 发送请求
-        response = requests.get(url, stream=True)
+        response = requests.get(url, stream=True, verify=False)
         response.raise_for_status()
         
         # 获取文件大小
@@ -483,9 +485,11 @@ def download_file_with_gui(url, local_filename, gui, file_name):
         
     except requests.exceptions.RequestException as e:
         gui.current_file_var.set(f"❌ 下载失败: {e}")
+        # print(e)
         return False
     except Exception as e:
         gui.current_file_var.set(f"❌ 下载过程中出现错误: {e}")
+        # print(e)
     
 def download_and_extract_gui(gui, config_path: str = "") -> bool:
     """带GUI的下载和解压主函数"""
@@ -512,36 +516,18 @@ def download_and_extract_gui(gui, config_path: str = "") -> bool:
     timeout_counter = 0
     need_update_translate = True
 
-    while not github_url:
-        if timeout_counter >= 10:
-            gui.current_file_var.set("❌ 获取GitHub Release信息失败，已达最大重试次数")
-            return False
-        
-        github_url, name = get_github_release_url() # type: ignore
-
-        if not github_url:
-            timeout_counter += 1
-            gui.current_file_var.set(f"❌ 获取GitHub Release信息失败，准备重试...\n(剩余次数 {10 - timeout_counter})")
-            time.sleep(1)
-        else:
-            print (f"获取到下载链接: {github_url}\n 零协汉化版本号: {name}")
-            if not check_need_up_translate(name):
-                print("当前已是最新汉化版本，无需更新。")
-                need_update_translate = False
-            else:
-                print("检测到新版本，准备更新...")
     
     # 定义要下载的文件列表
     download_files = [
         {
-            'name': 'LimbusLocalize',
-            'url': github_url,
-            'temp_filename': 'LimbusLocalize_latest.7z'
-        },
-        {
             'name': 'LLCCN-Font',
             'url': 'https://lz.qaiu.top/parser?url=https://wwbet.lanzoum.com/igRGn3ezd23g&pwd=do1n',
             'temp_filename': 'LLCCN-Font.7z'
+        },
+        {
+            'name': 'LimbusLocalize',
+            'url': 'github',
+            'temp_filename': 'LimbusLocalize_latest.7z'
         }
     ]
     
@@ -554,12 +540,34 @@ def download_and_extract_gui(gui, config_path: str = "") -> bool:
     for file_info in download_files:
         if not gui.is_downloading:
             break
-            
+
         # 检查字体文件是否已存在
         if os.path.exists("Font/Context/ChineseFont.ttf") and \
            file_info['name'] == 'LLCCN-Font':
+            print("字体文件已存在, 无需下载.")
             success_count += 1
             continue
+
+        if file_info['name'] == 'LimbusLocalize':
+            while not github_url:
+                if timeout_counter >= 10:
+                    gui.current_file_var.set("❌ 获取GitHub Release信息失败，已达最大重试次数")
+                    return False
+                
+                github_url, name = get_github_release_url() # type: ignore
+
+                if not github_url:
+                    timeout_counter += 1
+                    gui.current_file_var.set(f"❌ 获取GitHub Release信息失败，准备重试...\n(剩余次数 {10 - timeout_counter})")
+                    time.sleep(1)
+                else:
+                    print (f"获取到下载链接: {github_url}\n 零协汉化版本号: {name}")
+                    if not check_need_up_translate(name):
+                        print("当前已是最新汉化版本，无需更新。")
+                        need_update_translate = False
+                    else:
+                        print("检测到新版本，准备更新...")
+
         if not need_update_translate and \
             file_info['name'] == 'LimbusLocalize':
             success_count += 1
@@ -583,7 +591,7 @@ def download_and_extract_gui(gui, config_path: str = "") -> bool:
             success_count += 1
             
         except Exception as e:
-            continue
+            print(e)
         finally:
             # 清理临时文件
             cleanup_temp_files(temp_file)
