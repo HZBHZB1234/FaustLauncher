@@ -266,13 +266,16 @@ class FaustLauncherApp:
         from functions.fancy.dialog_colorful import test_color_gradient_gui
         from functions.pages.select_font import select_font_gui
         from functions.translate.auto_translate_gui import show_auto_translate_gui
-
-        source_path = f"{settings_manager.get_setting('game_path')}/LimbusCompany_Data/Assets/Resources_moved/Localize/en"
-        target_path = "workshop/LLC_zh-CN"
         
         # 创建工具区域
         tools_container = tk.Frame(self.tools_frame, bg=self.bg_color)
         tools_container.pack(fill=tk.BOTH, expand=True, padx=80, pady=20)
+        
+        def spawn_function_tr():
+            source_path = f"{settings_manager.get_setting('game_path')}/LimbusCompany_Data/Assets/Resources_moved/Localize/en"
+            target_path = "workshop/LLC_zh-CN"
+
+            return lambda: show_auto_translate_gui(self, source_path, target_path)
         
         # 创建工具列表
         tools = [
@@ -280,7 +283,7 @@ class FaustLauncherApp:
             {"name": "🚜 文件夹超链接", "description": "为文件夹制作超链接，达到转移空间的目的？", "color": "#34db34", "command": self.folder_link},
             {"name": "💻 渐变文本处理器", "description": "根据用户输入的文本生成渐变的 Untity 富文本。", "color": "#FFBD30", "command": lambda: test_color_gradient_gui(self)},
             {"name": "📝 字体修改", "description": "修改汉化包的字体，使用你自己喜欢的字体包代替。", "color": "#FA3E3E", "command": lambda: select_font_gui(self)},
-            {"name": "🔄 自动汉化", "description": "使用有道 api 实现对游戏的补充汉化。", "color": "#9130FF", "command": lambda: show_auto_translate_gui(self, source_path, target_path)},
+            {"name": "🔄 自动汉化", "description": "使用思知实现对游戏的补充汉化。", "color": "#9130FF", "command": spawn_function_tr()},
             {"name": "📦 Mod 管理器", "description": "管理边狱巴士的 Mod。", "color": "#808080", "command": self.open_mod_manager}
         ]
         
@@ -1090,6 +1093,11 @@ def run_game():
     global config_path, settings_manager
     # 复制 workshop 下的 LLC_zh-CN 文件夹到游戏目录下的 LimbusCompany_Data/Lang 文件夹 下
     import shutil
+    # 尝试删除原有的 LimbusCompany_Data/Lang/LLC_zh-CN 文件夹
+    if os.path.exists(os.path.join(config_path, 'LimbusCompany_Data/Lang/LLC_zh-CN')): # type: ignore
+        print("删除原有的 LimbusCompany_Data/Lang/LLC_zh-CN 文件夹")
+        shutil.rmtree(os.path.join(config_path, 'LimbusCompany_Data/Lang/LLC_zh-CN'), ignore_errors=True) # type: ignore
+
     print(f"开始复制 workshop 下的 LLC_zh-CN 文件夹到游戏目录下的 {config_path}")
     try:
         shutil.copytree('workshop/LLC_zh-CN', os.path.join(config_path, 'LimbusCompany_Data/Lang/LLC_zh-CN'), dirs_exist_ok=True) # type: ignore
@@ -1151,10 +1159,15 @@ def run_game():
     # 复制字体文件夹到汉化目录下
     print("开始复制字体文件夹到汉化目录下...")
     try:
-        shutil.copytree('Font', config_path + '/LimbusCompany_Data/Lang/LLC_zh-CN/', dirs_exist_ok=True) # type: ignore
+        if os.path.exists(config_path + '/LimbusCompany_Data/Lang/LLC_zh-CN/Font'): # type: ignore
+            # 创建Font文件夹
+            os.makedirs(config_path + '/LimbusCompany_Data/Lang/LLC_zh-CN/Font', exist_ok=True) # type: ignore
+
+        shutil.copytree('Font', config_path + '/LimbusCompany_Data/Lang/LLC_zh-CN/Font', dirs_exist_ok=True) # type: ignore
         print("字体文件夹复制完成")
     except Exception as e:
         print(f"复制字体文件夹时出错: {e}")
+        return
 
     from functions.dowloads.zeroasso_dow import create_config_file
     create_config_file(settings_manager.get_setting('game_path'))
@@ -1167,6 +1180,14 @@ def run_game():
     if settings_manager.get_setting('enable_ego_style'):
         from functions.fancy.EGO_colorful import main as apply_ego_style
         apply_ego_style()
+
+    # 技能描述美化
+    if settings_manager.get_setting('enable_skill_style'):
+        from functions.fancy.skill_info import handle_skill
+        handle_skill(config_path + '/LimbusCompany_Data/Lang/LLC_zh-CN/') # type: ignore
+
+    from functions.fancy.hint_set import simple_replace
+    simple_replace(config_path + '/LimbusCompany_Data/Lang/LLC_zh-CN/BattleHint.json') # type: ignore
 
     # 载入mod并启动游戏
     print("开始载入mod并启动游戏...")
